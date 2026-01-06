@@ -12,7 +12,7 @@ class BrainEngine:
             self.keys = [st.secrets["GEMINI_API_KEY"]]
         
         # قائمة الموديلات المحدثة لعام 2026
-        self.target_models = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-pro']
+        self.target_models = ["gemini-3-flash", "gemini-2.5-flash", "gemini-2.0-flash-exp"]
 
     def get_response(self, user_query, image=None, use_search=False, is_gen_mode=False):
         # 1. تفعيل البحث الحي إذا طلب المستخدم
@@ -63,3 +63,4 @@ class BrainEngine:
                 continue
         
         return "❌ NEURAL LINK LOST: Failed to bypass core security or API exhausted."
+

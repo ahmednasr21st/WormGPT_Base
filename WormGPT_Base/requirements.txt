@@ -4,3 +4,4 @@ Pillow
 cryptography
 duckduckgo_search
 requests
+PyPDF2

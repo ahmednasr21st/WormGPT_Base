@@ -1,38 +1,53 @@
-import sqlite3
-import hashlib
+import json
 import os
+from datetime import datetime, timedelta
 
 class AuthManager:
-    def __init__(self, db_path="database/worm_vault.db"):
-        # إنشاء مجلد الداتا بيز لو مش موجود
+    def __init__(self, db_file="database/worm_secure_db.json"):
+        self.db_file = db_file
+        # إنشاء المجلد والملف إذا لم يوجدا
         if not os.path.exists("database"):
             os.makedirs("database")
-        self.db_path = db_path
-        self._create_user_table()
+        if not os.path.exists(self.db_file):
+            with open(self.db_file, "w") as f:
+                json.dump({}, f)
 
-    def _create_user_table(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE,
-                    password TEXT,
-                    tier TEXT DEFAULT 'BASIC'
-                )
-            """)
-
-    def register_user(self, username, password):
-        hashed_pw = hashlib.sha256(password.encode()).hexdigest()
+    def load_db(self):
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_pw))
-            return True
+            with open(self.db_file, "r") as f:
+                return json.load(f)
         except:
-            return False
+            return {}
 
-    def verify_login(self, username, password):
-        hashed_pw = hashlib.sha256(password.encode()).hexdigest()
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("SELECT tier FROM users WHERE username = ? AND password = ?", (username, hashed_pw))
-            result = cursor.fetchone()
-            return result[0] if result else None
+    def save_db(self, data):
+        with open(self.db_file, "w") as f:
+            json.dump(data, f, indent=4)
+
+    def verify_serial(self, serial_key, fingerprint):
+        db = self.load_db()
+        now = datetime.now()
+        
+        # قائمة السيريالات الافتراضية (يمكنك نقلها للوحة المدير لاحقاً)
+        VALID_KEYS = {"WORM-MASTER-2026": 365, "VIP-HACKER-99": 30}
+
+        if serial_key in VALID_KEYS:
+            if serial_key not in db:
+                # تفعيل السيريال لأول مرة
+                db[serial_key] = {
+                    "device_id": fingerprint,
+                    "expiry": (now + timedelta(days=VALID_KEYS[serial_key])).strftime("%Y-%m-%d %H:%M:%S")
+                }
+                self.save_db(db)
+                return True, "SUCCESS"
+            else:
+                user_info = db[serial_key]
+                expiry = datetime.strptime(user_info["expiry"], "%Y-%m-%d %H:%M:%S")
+                
+                if now > expiry:
+                    return False, "EXPIRED"
+                if user_info["device_id"] != fingerprint:
+                    return False, "LOCKED_TO_OTHER_DEVICE"
+                
+                return True, "SUCCESS"
+        
+        return False, "INVALID_KEY"

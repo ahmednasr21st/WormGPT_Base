@@ -1,10 +1,10 @@
 streamlit
-google-generativeai
+google-genai
 Pillow
-cryptography
-duckduckgo_search
 requests
 PyPDF2
+gTTS
+duckduckgo_search
 plotly
 pandas
-gTTS
+

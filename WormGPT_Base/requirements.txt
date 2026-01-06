@@ -5,3 +5,5 @@ cryptography
 duckduckgo_search
 requests
 PyPDF2
+plotly
+pandas

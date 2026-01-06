@@ -1,113 +1,117 @@
 import streamlit as st
+import json
 import os
+import random
+from datetime import datetime, timedelta
 
-# 1. إعدادات الصفحة (يجب أن يكون أول أمر في السكربت)
-st.set_page_config(
-    page_title="WORM-GPT ELITE",
-    page_icon="💀",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# --- علامة التحقق من التحديث (لو ظهرت يعني السيرفر قرأ الكود الجديد) ---
-st.caption("🚀 Neural System Version: 5.0.1 - Active")
-
-# 2. استيراد المحركات (Modules) مع معالجة الأخطاء
+# --- 1. استيراد المحركات (سيتم تحميلها تدريجياً) ---
+# نستخدم try/except لضمان عدم توقف الموقع إذا لم نرفع باقي الـ 22 ملفاً بعد
 try:
-    from database.auth_manager import AuthManager
     from core.styles_manager import StylesManager
     from core.brain_engine import BrainEngine
-    
-    auth = AuthManager()
-    styles = StylesManager()
-except ImportError as e:
-    st.error(f"❌ Error loading modules: {e}")
-    st.info("تأكد من وجود ملفات __init__.py داخل مجلد core و database")
-    st.stop()
+    from database.auth_manager import AuthManager
+except ImportError:
+    pass
 
-# 3. تطبيق التصميم المظلم فوراً
-styles.apply_global_css()
+# --- 2. إعدادات الصفحة والتصميم ---
+st.set_page_config(page_title="WORM-GPT v2.0", page_icon="💀", layout="wide")
 
-# 4. إدارة حالة الجلسة (Session State)
+# تطبيق التصميم المظلم والنيون الأحمر
+st.markdown("""
+<style>
+    .stApp { background-color: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; }
+    .logo-text { font-size: 45px; font-weight: bold; color: #ffffff; text-align: center; letter-spacing: 2px; }
+    .neon-line { height: 2px; width: 100%; background: linear-gradient(90deg, transparent, #ff0000, transparent); box-shadow: 0 0 10px #ff0000; margin-bottom: 30px; }
+    .stChatMessage { border-radius: 0px !important; border-bottom: 1px solid #30363d !important; }
+    [data-testid="stSidebar"] { background-color: #0d1117 !important; border-right: 1px solid #ff000033; }
+    .admin-box { border: 1px solid #ff0000; padding: 20px; border-radius: 10px; background: #161b22; }
+</style>
+<div class="logo-text">WORM-GPT</div>
+<div class="neon-line"></div>
+""", unsafe_allow_html=True)
+
+# --- 3. إدارة الجلسة والبيانات ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.user_tier = "BASIC"
+    st.session_state.page = "Terminal"
 
-# ------------------------------------------------------------------------------
-# 5. واجهة تسجيل الدخول (Login UI)
-# ------------------------------------------------------------------------------
-def render_login():
-    st.markdown("<br><br>", unsafe_allow_html=True)
+# --- 4. نظام تسجيل الدخول (المرتبط بـ database/auth_manager.py) ---
+def login_screen():
     col1, col2, col3 = st.columns([1, 2, 1])
-    
     with col2:
-        st.markdown("<h1 style='text-align: center; color: #4285f4;'>🧬 WORM-GPT</h1>", unsafe_allow_html=True)
-        tab1, tab2 = st.tabs(["[ LOGIN ]", "[ SIGN UP ]"])
-        
-        with tab1:
-            u = st.text_input("Username", placeholder="Enter ID...")
-            p = st.text_input("Password", type="password", placeholder="Enter Access Code...")
-            if st.button("UNLOCK ACCESS", use_container_width=True):
-                tier = auth.verify_login(u, p)
-                if tier:
-                    st.session_state.authenticated = True
-                    st.session_state.username = u
-                    st.session_state.tier = tier
-                    st.rerun()
-                else:
-                    st.error("Access Denied: Invalid Credentials")
-                    
-        with tab2:
-            new_u = st.text_input("New Identity")
-            new_p = st.text_input("New Access Code", type="password")
-            if st.button("CREATE ACCOUNT", use_container_width=True):
-                if auth.register_user(new_u, new_p):
-                    st.success("Identity Created. Proceed to Login.")
-                else:
-                    st.error("Identity already exists in database.")
+        st.markdown("<h3 style='text-align:center;'>🧬 NEURAL ACCESS</h3>", unsafe_allow_html=True)
+        serial_input = st.text_input("ENTER ACCESS KEY:", type="password")
+        if st.button("UNLOCK SYSTEM", use_container_width=True):
+            # سنستخدم دالة التحقق من السيريال من ملف auth_manager لاحقاً
+            if serial_input in ["WORM-MASTER-2026", "VIP-99"]: # تجريبي
+                st.session_state.authenticated = True
+                st.session_state.user_serial = serial_input
+                st.rerun()
+            else:
+                st.error("❌ INVALID SERIAL KEY")
+    st.stop()
 
-# ------------------------------------------------------------------------------
-# 6. واجهة الشات والذكاء (Main Interface)
-# ------------------------------------------------------------------------------
-def render_chat():
-    # الشريط الجانبي (Sidebar)
-    with st.sidebar:
-        st.title("💀 WORM-GPT")
-        st.markdown(f"**Operator:** `{st.session_state.username}`")
-        st.markdown(f"**Tier:** `{st.session_state.tier}`")
-        st.divider()
-        if st.button("Logout", use_container_width=True):
-            st.session_state.authenticated = False
-            st.rerun()
+if not st.session_state.authenticated:
+    login_screen()
 
-    # عرض الرسائل السابقة
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+# --- 5. واجهة التحكم (Sidebar) ---
+with st.sidebar:
+    st.markdown("### 💀 SYSTEM CORE")
+    st.session_state.page = st.radio("Navigation", 
+        ["Terminal", "Modules (22)", "Billing/Crypto", "Admin Panel"])
+    
+    st.divider()
+    st.info(f"User: {st.session_state.user_serial}")
+    if st.button("LOGOUT"):
+        st.session_state.authenticated = False
+        st.rerun()
 
-    # استقبال أوامر المستخدم
-    if prompt := st.chat_input("Enter Command to Neural Core..."):
-        # عرض رسالة المستخدم
+# --- 6. الصفحات الرئيسية ---
+
+# أ. صفحة الشات (Terminal)
+if st.session_state.page == "Terminal":
+    st.markdown("### 📡 NEURAL TERMINAL")
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    if prompt := st.chat_input("State your objective..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # استدعاء عقل Gemini للحصول على الرد
         with st.chat_message("assistant"):
-            try:
-                brain = BrainEngine()
-                with st.spinner("Processing Neural Request..."):
+            with st.status("💀 EXPLOITING THE MATRIX...", expanded=False):
+                # هنا يتم استدعاء ملف core/brain_engine.py
+                try:
+                    brain = BrainEngine()
                     response = brain.get_response(prompt)
-                    st.markdown(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
-            except Exception as e:
-                st.error(f"Brain Sync Error: {e}")
+                except:
+                    response = "System Error: Brain module not found. Check core/ directory."
+            st.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
 
-# ------------------------------------------------------------------------------
-# 7. التشغيل الفعلي (Main Logic)
-# ------------------------------------------------------------------------------
-if not st.session_state.authenticated:
-    render_login()
-else:
-    render_chat()
+# ب. صفحة المدير (Admin Panel)
+elif st.session_state.page == "Admin Panel":
+    st.markdown("<div class='admin-box'>", unsafe_allow_html=True)
+    st.title("⚙️ MASTER CONTROL")
+    st.write("Manage serial keys and monitor users here.")
+    # سيتم ربطها بـ database/auth_manager.py
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ج. صفحة الموديلات (The 22 Files)
+elif st.session_state.page == "Modules (22)":
+    st.title("🗂️ SYSTEM MODULES")
+    cols = st.columns(2)
+    modules_list = [
+        "Vision Processor", "Audio Synthesizer", "Search Integrator", 
+        "Image Generator", "PDF Analyzer", "Code Executor", 
+        "Data Visualizer", "API Rotator", "Performance Monitor"
+    ]
+    for i, mod in enumerate(modules_list):
+        cols[i % 2].checkbox(f"Module: {mod}", value=False, disabled=True)
+    st.info("Modules are activated based on your license tier.")
